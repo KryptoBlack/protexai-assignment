@@ -13,11 +13,11 @@ from slack_sdk.errors import SlackApiError
 class RuleEngine:
     """RuleEngine class acts as a base for rule implementations"""
 
-    # stores if object are inside region
-    # of interest (roi) with respect to object class
+    # sets object class to True if it is in
+    # that region of interest (roi) else sets it to False
     _objects_in_rois: List[Dict[str, bool]] = list()
 
-    # stores region of interest in the form of shapely Polygon
+    # stores region of interest in the form of shapely Polygon for calculations
     _rois: List[Polygon] = list()
 
     # the difference between current positive frame and last positive frame
@@ -26,6 +26,8 @@ class RuleEngine:
     #
     # Note: "positive frames" are frames at which the rule
     #       result returned positive
+    #
+    # Motive: this is done to avoid sending messages for the same event
     #
     _maximum_allowed_diff: int = 1
     _last_positive_frame: int = 0
@@ -55,6 +57,10 @@ class RuleEngine:
         self.__slack_channel = os.environ["SLACK_CHANNEL"]
 
     def reset_objects(self) -> None:
+        """This method is required to reset the objects in all the region of interests.
+
+        It is done to so previous frames objects do not interfer with the new frame.
+        """
         for index in range(len(self._objects_in_rois)):
             self._objects_in_rois[index] = {
                 "car": False,
@@ -71,7 +77,7 @@ class RuleEngine:
         frame_width: int,
         frame_height: int,
     ) -> List[Tuple[float, float]]:
-        """this function is used to convert fractional values to actual values"""
+        """This method is used to convert fractional values to actual values"""
         return [
             (
                 # top-left
@@ -96,7 +102,7 @@ class RuleEngine:
         ]
 
     def should_notify(self, current_frame: int) -> bool:
-        """responsible to tell if new notification is necessary"""
+        """This method is responsible to tell if new notification is necessary"""
         res: bool = self.__slack_client != None and self._maximum_allowed_diff < (
             current_frame - self._last_positive_frame
         )
@@ -176,7 +182,7 @@ class CAP(RuleEngine):
         cam_id: int,
         timestamp: int,
     ) -> int:
-        """responsible to execute the CAP rule"""
+        """Responsible to execute the CAP rule"""
 
         for index, roi in enumerate(self._rois):
             if roi.intersects(object.centroid):
@@ -201,7 +207,7 @@ class CAP(RuleEngine):
 
 
 class Render(CAP):
-    """handles mp4 creation and also manages the event loop"""
+    """Handles mp4 creation and also manages the event loop"""
 
     __colors: Dict[str, Tuple[int, int, int]] = {
         "person": (50, 168, 82),
@@ -237,12 +243,12 @@ class Render(CAP):
         self.cam_id = cam_id
 
     def __add_polygon(self, img, polygon, obj_class) -> None:
-        """this function is used to add polygon to the provided image (np.array)"""
+        """This function is used to add polygon to the provided image (np.array)"""
         vertices = np.array(polygon.exterior.coords, np.int32)
         cv2.polylines(img, [vertices], True, self.__colors[obj_class], 2)
 
     def __add_dot(self, img, dot, obj_class) -> None:
-        """this function is used to add dot to the provided image (np.array)"""
+        """This function is used to add dot to the provided image (np.array)"""
         vertices = np.array(dot.coords, np.int32)
         cv2.circle(
             img,
@@ -253,7 +259,7 @@ class Render(CAP):
         )
 
     def render(self):
-        """handles the main event loop and renders video"""
+        """Handles the main event loop and renders video"""
 
         for frame in self.frames:
             alerts: Set[int] = set()
@@ -284,18 +290,19 @@ class Render(CAP):
                     )
                 )
 
-                # render object
+                # render objects
                 self.__add_polygon(image, object, detection["class"])
                 self.__add_dot(image, object.centroid, detection["class"])
 
             # draw region of interests to the image
             indicator: bool = False
             for index, roi in enumerate(self._rois):
+                color: str = "other"
                 if index in alerts:
                     indicator = True
-                    self.__add_polygon(image, roi, "alert")
-                else:
-                    self.__add_polygon(image, roi, "other")
+                    color = "alert"
+
+                self.__add_polygon(image, roi, color)
 
             # add border
             color: str = "alert" if indicator else "other"
