@@ -109,7 +109,7 @@ class RuleEngine:
         self._last_positive_frame = current_frame
         return res
 
-    def notify(self, timestamp: int, rule_name: str, cam_id: int) -> None:
+    def notify(self, timestamp: int, rule_name: str, cam_name: str) -> None:
         if self.__slack_client == None:
             return
 
@@ -135,20 +135,20 @@ class RuleEngine:
         try:
             self.__slack_client.chat_postMessage(
                 channel=self.__slack_channel,
-                text=f"A new event has occurred; below are a few details\n*Rule Name:* {rule_name}\n*When:* {time_str}after origin\n*Camera ID:* {cam_id}",
+                text=f"*A new event has occurred:* \n*Rule Name:* {rule_name}\n*When:* {time_str}after origin\n*Camera Name:* {cam_name}",
                 blocks=[
                     {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": ":warning: A new event has occurred; below are a few details",
+                            "text": ":warning: *A new event has occurred:*",
                         },
                     },
                     {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"*Rule Name:* {rule_name}\n*When:* {time_str}after origin\n*Camera ID:* {cam_id}",
+                            "text": f"*Rule Name:* {rule_name}\n*When:* {time_str}after origin\n*Camera Name:* {cam_name}",
                         },
                     },
                 ],
@@ -179,7 +179,7 @@ class CAP(RuleEngine):
         object: Polygon,
         obj_class: str,
         frame_num: int,
-        cam_id: int,
+        cam_name: str,
         timestamp: int,
     ) -> int:
         """Responsible to execute the CAP rule"""
@@ -197,7 +197,7 @@ class CAP(RuleEngine):
                     if self.should_notify(frame_num):
                         self.notify(
                             timestamp=timestamp,
-                            cam_id=cam_id,
+                            cam_name=cam_name,
                             rule_name=self.rule_name,
                         )
                     return index
@@ -223,7 +223,7 @@ class Render(CAP):
         frames: List[Dict[str, Any]],
         width: int,
         height: int,
-        cam_id: int,
+        cam_name: str,
     ) -> None:
         super().__init__(rois)
 
@@ -240,7 +240,7 @@ class Render(CAP):
         )
 
         self.frames = frames
-        self.cam_id = cam_id
+        self.cam_name = cam_name
 
     def __add_polygon(self, img, polygon, obj_class) -> None:
         """This function is used to add polygon to the provided image (np.array)"""
@@ -286,7 +286,7 @@ class Render(CAP):
                         obj_class=obj_class,
                         frame_num=frame["frame_num"],
                         timestamp=frame["timestamp"],
-                        cam_id=self.cam_id,
+                        cam_name=self.cam_name,
                     )
                 )
 
@@ -332,7 +332,7 @@ class Render(CAP):
 
 
 if __name__ == "__main__":
-    cam_id: int
+    cam_name: str
     width: int = 1920
     height: int = 1080
 
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     frames: List[Dict[str, Any]] = list()
     with open("annotations.json", "r") as f:
         content = json.loads(f.read())
-        cam_id = content["cam_id"]
+        cam_name = content["cam_name"]
         frames = content["frames"]
 
     root = Render(
@@ -351,7 +351,7 @@ if __name__ == "__main__":
         frames=frames,
         width=width,
         height=height,
-        cam_id=cam_id,
+        cam_name=cam_name,
     )
 
     root.render()
