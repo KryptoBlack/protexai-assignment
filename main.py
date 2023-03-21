@@ -4,7 +4,6 @@ import os
 import numpy as np
 from shapely.geometry import Polygon
 from typing import List, Dict, Any, Optional, Set, Tuple
-from datetime import datetime
 from dotenv import load_dotenv
 
 from slack_sdk import WebClient
@@ -45,7 +44,6 @@ class RuleEngine:
 
         # load environment variables
         load_dotenv()
-        self.__slack_token = os.getenv("SLACK_TOKEN")
         if os.getenv("SLACK_TOKEN"):
             self.__slack_client = WebClient(token=os.environ["SLACK_TOKEN"])
 
@@ -109,10 +107,29 @@ class RuleEngine:
         if self.__slack_client == None:
             return
 
+        # for better human readable time
+        seconds = timestamp / 1e9
+
+        seconds = seconds % (24 * 3600)
+        hour = seconds // 3600
+        seconds %= 3600
+        minutes = seconds // 60
+        seconds %= 60
+
+        readable_time = list()
+        if hour > 0:
+            readable_time.append(f"{int(hour)} hours ")
+        if minutes > 0:
+            readable_time.append(f"{int(minutes)} minutes ")
+        if seconds > 0:
+            readable_time.append(f"{int(seconds)} seconds ")
+
+        time_str: str = "".join(readable_time)
+
         try:
             self.__slack_client.chat_postMessage(
                 channel=self.__slack_channel,
-                text=f"A new event has occurred; below are a few details\n*Rule Name:* {rule_name}\n*When:* {datetime.fromtimestamp(timestamp / 1e9)}\n*Camera ID:* {cam_id}",
+                text=f"A new event has occurred; below are a few details\n*Rule Name:* {rule_name}\n*When:* {time_str}after origin\n*Camera ID:* {cam_id}",
                 blocks=[
                     {
                         "type": "section",
@@ -125,7 +142,7 @@ class RuleEngine:
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"*Rule Name:* {rule_name}\n*When:* {datetime.fromtimestamp(timestamp / 1e9)} ({timestamp}ns)\n*Camera ID:* {cam_id}",
+                            "text": f"*Rule Name:* {rule_name}\n*When:* {time_str}after origin\n*Camera ID:* {cam_id}",
                         },
                     },
                 ],
@@ -219,11 +236,21 @@ class Render(CAP):
         self.frames = frames
         self.cam_id = cam_id
 
-    def __add_object(self, img, polygon, obj_class) -> None:
-        """this function is used to add objects to the provided image (np.array)"""
+    def __add_polygon(self, img, polygon, obj_class) -> None:
+        """this function is used to add polygon to the provided image (np.array)"""
         vertices = np.array(polygon.exterior.coords, np.int32)
-        vertices = vertices.reshape((-1, 1, 2))
         cv2.polylines(img, [vertices], True, self.__colors[obj_class], 2)
+
+    def __add_dot(self, img, dot, obj_class) -> None:
+        """this function is used to add dot to the provided image (np.array)"""
+        vertices = np.array(dot.coords, np.int32)
+        cv2.circle(
+            img,
+            vertices[0],
+            radius=3,
+            color=self.__colors[obj_class],
+            thickness=-1,
+        )
 
     def render(self):
         """handles the main event loop and renders video"""
@@ -245,6 +272,8 @@ class Render(CAP):
                 )
 
                 # event detection
+                # self.execute returns the index of region of
+                # interest where the rule states positive else returns -1
                 alerts.add(
                     self.execute(
                         object=object,
@@ -256,20 +285,21 @@ class Render(CAP):
                 )
 
                 # render object
-                self.__add_object(image, object, detection["class"])
+                self.__add_polygon(image, object, detection["class"])
+                self.__add_dot(image, object.centroid, detection["class"])
 
             # draw region of interests to the image
             indicator: bool = False
             for index, roi in enumerate(self._rois):
                 if index in alerts:
                     indicator = True
-                    self.__add_object(image, roi, "alert")
+                    self.__add_polygon(image, roi, "alert")
                 else:
-                    self.__add_object(image, roi, "other")
+                    self.__add_polygon(image, roi, "other")
 
             # add border
             color: str = "alert" if indicator else "other"
-            self.__add_object(
+            self.__add_polygon(
                 image,
                 Polygon([(0, 0), (width, 0), (width, height), (0, height)]),
                 color,

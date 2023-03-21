@@ -35,6 +35,8 @@ Note: (Linux Only) *ffmpeg, libsm6, libxext6* are dependencies for **opencv**. T
 4. Run program `python main.py`
 
 ## Docker
+You can find the docker image [here](https://hub.docker.com/repository/docker/kryptoblack/protexai/general)
+
 ### Prerequisites
 1. Docker Engine
 
