@@ -34,6 +34,7 @@ class RuleEngine:
     # stores token that is used for notification. if token is not present
     # self.should_notify will always return False
     __slack_token: Optional[str] = None
+    __slack_channel: str
 
     def __init__(self, rois: List[List[Tuple[int, int]]]) -> None:
         for roi in rois:
@@ -45,6 +46,12 @@ class RuleEngine:
             # load environment variables
             load_dotenv()
             self.__slack_token = os.getenv("SLACK_TOKEN")
+
+            # os.environ is used instead of os.getenv because
+            # if __slack_token is present then we need __slack_channel
+            # to be present otherwise the program will fail at notify.
+            # So this allows the program to fail during initialization instead.
+            self.__slack_channel = os.environ["SLACK_CHANNEL"]
 
     def reset_objects(self) -> None:
         for index in range(len(self._objects_in_rois)):
@@ -100,7 +107,7 @@ class RuleEngine:
 
         try:
             client.chat_postMessage(
-                channel="C04UXB1J204",
+                channel=self.__slack_channel,
                 text=f"A new event has occurred; below are a few details\n*Rule Name:* {rule_name}\n*When:* {datetime.fromtimestamp(timestamp / 1e9)}\n*Camera ID:* {cam_id}",
                 blocks=[
                     {
@@ -201,7 +208,7 @@ class Render(CAP):
         self.video = cv2.VideoWriter(
             "out/output.mp4",
             cv2.VideoWriter_fourcc(*"mp4v"),
-            20,
+            5,
             (width, height),
         )
 
