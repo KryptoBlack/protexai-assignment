@@ -39,10 +39,14 @@ Note: (Linux Only) *ffmpeg, libsm6, libxext6* are dependencies for **opencv**. T
 1. Docker Engine
 
 ### Steps
-1. With bash `./docker-run.sh`
-2. Without bash
-    ```
-    mkdir out/ && docker run --rm --mount type=volume,dst=/app/out,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device=$(pwd)/out --env-file .env kryptoblack/protexai:latest
-    ```
+1. Copy example.env as .env
+2. Poplulate .env with valid `SLACK_TOKEN` and `SLACK_CHANNEL` values.
+3. The docker handicap shell script is written in bash. So there is a very minute chance that the shell script can fail if bash is not used to run it. So there are two methods to run docker
+    a. With bash `./docker-run.sh`
+    b. Without bash
+        ```
+        mkdir out/ && docker run --rm --mount type=volume,dst=/app/out,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device=$(pwd)/out --env-file .env kryptoblack/protexai:latest
+        ```
+WARNING: Do not use quotes for values in .env file as the file is passed through *--env-file* flag and it will parse the values with the quotes making your values invalid.
 
 

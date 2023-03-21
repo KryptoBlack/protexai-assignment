@@ -31,9 +31,9 @@ class RuleEngine:
     _maximum_allowed_diff: int = 1
     _last_positive_frame: int = 0
 
-    # stores token that is used for notification. if token is not present
-    # self.should_notify will always return False
-    __slack_token: Optional[str] = None
+    # slack client that is used for notification. if token is not present
+    # __slack_client will stay None and self.should_notify will always return False
+    __slack_client: Optional[WebClient] = None
     __slack_channel: str
 
     def __init__(self, rois: List[List[Tuple[int, int]]]) -> None:
@@ -43,15 +43,18 @@ class RuleEngine:
                 {"car": False, "person": False, "truck": False}
             )
 
-            # load environment variables
-            load_dotenv()
-            self.__slack_token = os.getenv("SLACK_TOKEN")
+        # load environment variables
+        load_dotenv()
+        self.__slack_token = os.getenv("SLACK_TOKEN")
+        if os.getenv("SLACK_TOKEN"):
+            self.__slack_client = WebClient(token=os.environ["SLACK_TOKEN"])
 
-            # os.environ is used instead of os.getenv because
-            # if __slack_token is present then we need __slack_channel
-            # to be present otherwise the program will fail at notify.
-            # So this allows the program to fail during initialization instead.
-            self.__slack_channel = os.environ["SLACK_CHANNEL"]
+        # os.environ is used instead of os.getenv to raise an exception
+        #
+        # if __slack_token is present then we need __slack_channel
+        # to be present otherwise the program will fail at notify.
+        # So this allows the program to fail during initialization instead.
+        self.__slack_channel = os.environ["SLACK_CHANNEL"]
 
     def reset_objects(self) -> None:
         for index in range(len(self._objects_in_rois)):
@@ -96,17 +99,18 @@ class RuleEngine:
 
     def should_notify(self, current_frame: int) -> bool:
         """responsible to tell if new notification is necessary"""
-        res: bool = self.__slack_token != None and self._maximum_allowed_diff < (
+        res: bool = self.__slack_client != None and self._maximum_allowed_diff < (
             current_frame - self._last_positive_frame
         )
         self._last_positive_frame = current_frame
         return res
 
     def notify(self, timestamp: int, rule_name: str, cam_id: int) -> None:
-        client = WebClient(token=self.__slack_token)
+        if self.__slack_client == None:
+            return
 
         try:
-            client.chat_postMessage(
+            self.__slack_client.chat_postMessage(
                 channel=self.__slack_channel,
                 text=f"A new event has occurred; below are a few details\n*Rule Name:* {rule_name}\n*When:* {datetime.fromtimestamp(timestamp / 1e9)}\n*Camera ID:* {cam_id}",
                 blocks=[
@@ -121,7 +125,7 @@ class RuleEngine:
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"*Rule Name:* {rule_name}\n*When:* {datetime.fromtimestamp(timestamp / 1e9)}\n*Camera ID:* {cam_id}",
+                            "text": f"*Rule Name:* {rule_name}\n*When:* {datetime.fromtimestamp(timestamp / 1e9)} ({timestamp}ns)\n*Camera ID:* {cam_id}",
                         },
                     },
                 ],
