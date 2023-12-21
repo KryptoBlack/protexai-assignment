@@ -11,6 +11,6 @@ fi
 [ ! -d "./out" ] && mkdir out
 
 docker run --rm \
-    --mount type=volume,dst=/app/out,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device=$(pwd)/out \
     --env-file .env \
-    kryptoblack/protexai:latest
+    -v "$(pwd)"/out:/app/out \
+    kryptoblack/sight-alert:latest

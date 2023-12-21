@@ -1,10 +1,22 @@
-# ProtexAI Assignment
+# Sight Alert
 
-The goal of the assignment is split into two parts:
-1. Visualization (.mp4 file)
-2. Event Detection (slack message)
+SightAlert is a pragmatic project with a dual emphasis on Visualization and 
+Event Detection, designed to offer practical insights into the observed 
+environment. The .mp4 video output, although minimalist with a simple 
+box-and-dot representation for entities, provides a functional visual overview 
+of the surroundings.
 
-An event should trigger every time a Person and a Car are inside a Region of Interest at the same time.
+In the realm of Event Detection, the project utilizes Slack messaging for 
+instantaneous notifications. The distinctive feature lies in its ability to 
+trigger an event when both a Person and a Car coexist within a designated 
+Region of Interest. This straightforward yet effective approach enhances 
+situational awareness, alerting users to specific occurrences in the monitored 
+area.
+
+SightAlert, while not boasting vivid imagery or cutting-edge features, is a 
+reliable solution that pragmatically combines visualization and event-driven 
+insights. Its simplicity ensures practical functionality for environmental 
+monitoring and timely response.
 
 ## Directory Structure
 ```
@@ -35,7 +47,7 @@ Note: (Linux Only) *ffmpeg, libsm6, libxext6* are dependencies for **opencv**. T
 4. Run program `python main.py`
 
 ## Docker
-You can find the docker image [here](https://hub.docker.com/repository/docker/kryptoblack/protexai/general)
+You can find the docker image [here](https://hub.docker.com/repository/docker/kryptoblack/sight-alert/general)
 
 ### Prerequisites
 1. Docker Engine
@@ -51,7 +63,7 @@ You can find the docker image [here](https://hub.docker.com/repository/docker/kr
         
     3. Without bash
         ```
-        mkdir out/ && docker run --rm --mount type=volume,dst=/app/out,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device=$(pwd)/out --env-file .env kryptoblack/protexai:latest
+        mkdir out/ && docker run --rm --mount type=volume,dst=/app/out,volume-driver=local,volume-opt=type=none,volume-opt=o=bind,volume-opt=device=$(pwd)/out --env-file .env kryptoblack/sight-alert:latest
         ```
 
 WARNING: Do not use quotes for values in .env file as the file is passed through *--env-file* flag and it will parse the values with the quotes making your values invalid.
